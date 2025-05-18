@@ -15,9 +15,9 @@ Docker Compose configuration for deploying the educational platform.
 
 1. Clone all repositories:
 ```bash
-git clone <eduapi-repository-url>
-git clone <eduportal-repository-url>
-git clone <edu-deployment-repository-url>
+git clone https://github.com/EduApplication/edu-api
+git clone https://github.com/EduApplication/edu-portal
+git clone https://github.com/EduApplication/edu-deployment
 ```
 
 2. Start all services:
