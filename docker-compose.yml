@@ -1,0 +1,111 @@
+version: '3.7'
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Password123
+      - MSSQL_PID=Express
+    ports:
+      - 1433:1433
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - edu-network
+
+  eduapi:
+    build:
+      context: ../EduApi
+    container_name: eduapi
+    ports:
+      - 8081:8080
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=EduPortal;User Id=sa;Password=YourStrong@Password123;MultipleActiveResultSets=true;TrustServerCertificate=True
+      - ElasticConfiguration__Uri=http://elasticsearch:9200
+      - Minio__Endpoint=minio:9000
+      - Cors__AllowedOrigins__0=http://localhost:3001
+      - Jwt__Key=YourSuperSecretKey12345!@#$%ThisShouldBeAtLeast32CharactersLong
+      - Jwt__Issuer=eduportal-api
+      - Jwt__Audience=eduportal-client
+      - Jwt__DurationInMinutes=60
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+      - Serilog__MinimumLevel__Default=Information
+      - Serilog__MinimumLevel__Override__Microsoft=Warning
+      - Serilog__MinimumLevel__Override__System=Warning
+      - Serilog__MinimumLevel__Override__Microsoft.AspNetCore=Warning
+    depends_on:
+      - sqlserver
+      - elasticsearch
+      - minio
+    networks:
+      - edu-network
+      - elk
+
+  frontend:
+    build:
+      context: ../eduportal
+      args:
+        REACT_APP_API_URL: http://localhost:8081/api
+    container_name: frontend
+    ports:
+      - 3001:80
+    depends_on:
+      - eduapi
+    networks:
+      - edu-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.6.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+    
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.6.0
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      - MINIO_ROOT_USER=minioadmin 
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - elk
+      - edu-network
+
+networks:
+  elk:
+    driver: bridge
+  edu-network:
+    driver: bridge
+
+volumes:
+  elasticsearch-data:
+  minio-data:
+  sqlserver-data:
